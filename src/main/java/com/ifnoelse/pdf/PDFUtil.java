@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,11 +18,11 @@ import java.util.stream.Collectors;
  * Created by ifnoelse on 2017/2/25 0025.
  */
 public class PDFUtil {
-    private static Pattern bookmarkPattern = Pattern.compile("^[\t\\s　]*?([0-9.]+)?(.*?)/?[\t\\s　]*([0-9]+)[\t\\s　]*?$");
-    private static String blankRegex = "[\t\\s　]+";
+    private static Pattern bookmarkPattern = Pattern.compile("^([\t\\s　]*)?([0-9.]+)?(.*?)/?[\t\\s　]*([-?0-9]+)[\t\\s　]*?$");
+    private static String blankRegex = "[\t\\s　]";
 
     public static String replaceBlank(String str) {
-        return str.replaceAll(blankRegex, " ").trim();
+        return str.replaceAll(blankRegex, " ");
     }
 
     public static void addBookmark(String bookmarks, String srcFile, String destFile, int pageIndexOffset) {
@@ -50,32 +51,52 @@ public class PDFUtil {
      * @param bookmarks       Directory content, each list element is a directory content, such as：“1.1 Functional vs. Imperative Data Structures 1”
      * @param pageIndexOffset The pdf file is really the offset between the page number and the directory page number.
      * @param minLens         Legal directory entry minimum length
-     * @param maxLnes         Legal directory entry maximum length
+     * @param maxLens         Legal directory entry maximum length
      * @return Returns a list of bookmarked content
      */
-    public static List<Bookmark> generateBookmark(List<String> bookmarks, int pageIndexOffset, int minLens, int maxLnes) {
+    public static List<Bookmark> generateBookmark(List<String> bookmarks, int pageIndexOffset, int minLens, int maxLens) {
         List<Bookmark> bookmarkList = new ArrayList<>();
+        LinkedList<Bookmark> stack = new LinkedList<>();  // 使用LinkedList来作为栈
+
         for (String ln : bookmarks) {
             ln = replaceBlank(ln);
-            if (ln.length() < minLens || ln.length() > maxLnes) continue;
+            if (ln.length() < minLens || ln.length() > maxLens) continue;
             Matcher matcher = bookmarkPattern.matcher(ln);
             if (matcher.find()) {
-                String seq = matcher.group(1);
-                String title = replaceBlank(matcher.group(2));
-                int pageIndex = Integer.parseInt(matcher.group(3));
-                if (seq != null && bookmarkList.size() > 0) {
-                    Bookmark pre = bookmarkList.get(bookmarkList.size() - 1);
-                    if (pre.getSeq() == null || seq.startsWith(pre.getSeq())) {
-                        pre.addSubBookMarkBySeq(new Bookmark(seq, title, pageIndex + pageIndexOffset));
-                    } else {
-                        bookmarkList.add(new Bookmark(seq, title, pageIndex + pageIndexOffset));
-                    }
+                int currentIndent = matcher.group(1).length();
+                String seq = matcher.group(2);
+                String title = replaceBlank(matcher.group(3));
+                int pageIndex = Integer.parseInt(matcher.group(4));
+
+                // 创建当前书签对象
+                Bookmark currentBookmark = new Bookmark(seq, title, pageIndex + pageIndexOffset, currentIndent);
+                if (title.equals("第二篇 论资本的性质及其蓄积和用途 ")) {
+                    System.out.println(title);
+                }
+                // 如果栈为空，直接加入书签列表
+                if (stack.isEmpty()) {
+                    bookmarkList.add(currentBookmark);
+                    stack.addFirst(currentBookmark);  // 将当前书签加入栈顶
                 } else {
-                    bookmarkList.add(new Bookmark(seq, title, pageIndex + pageIndexOffset));
+                    // 检查栈顶的书签
+                    while (!stack.isEmpty() && stack.peekFirst().getIndent() >= currentIndent) {
+                        stack.removeFirst();  // 弹出比当前缩进大或相等的书签
+                    }
+
+                    if (!stack.isEmpty()) {
+                        // 将当前书签作为栈顶书签的子书签
+                        stack.peekFirst().addSubBookmark(currentBookmark);
+                    } else {
+                        // 没有符合条件的父书签，直接加入书签列表
+                        bookmarkList.add(currentBookmark);
+                    }
+
+                    // 将当前书签压入栈中
+                    stack.addFirst(currentBookmark);
                 }
 
             } else {
-                bookmarkList.add(new Bookmark(replaceBlank(ln)));
+                throw new IllegalArgumentException(ln + " 输入格式不正确。请使用[缩进] [章节序号（可选）] [章节标题] [页码]");
             }
         }
         return bookmarkList;

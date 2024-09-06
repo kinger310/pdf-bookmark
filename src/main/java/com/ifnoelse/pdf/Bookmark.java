@@ -11,7 +11,8 @@ public class Bookmark {
     private String seq;
     private int pageIndex = -1;
     private String title;
-    private List<Bookmark> subBookMarks = new ArrayList<>();
+    private int indent;
+    private List<Bookmark> subBookmarks = new ArrayList<>();
     public Bookmark(String title, int pageIndex) {
         this.pageIndex = pageIndex;
         this.title = title;
@@ -20,6 +21,14 @@ public class Bookmark {
         this.pageIndex = pageIndex;
         this.title = title;
         this.seq = seq;
+        this.indent = 0;
+    }
+
+    public Bookmark(String seq, String title, int pageIndex, int indent) {
+        this.pageIndex = pageIndex;
+        this.title = title;
+        this.seq = seq;
+        this.indent = indent;
     }
 
     public Bookmark(String title) {
@@ -51,23 +60,31 @@ public class Bookmark {
         this.title = title;
     }
 
-    public List<Bookmark> getSubBookMarks() {
-        return subBookMarks;
+    public int getIndent() {
+        return indent;
     }
 
-    public void addSubBookMark(Bookmark kid) {
-        subBookMarks.add(kid);
+    public void setIndent(int indent) {
+        this.indent = indent;
+    }
+
+    public List<Bookmark> getSubBookmarks() {
+        return subBookmarks;
+    }
+
+    public void addSubBookmark(Bookmark kid) {
+        subBookmarks.add(kid);
     }
 
     public void addSubBookMarkBySeq(Bookmark kid) {
 
-        for (Bookmark bookmark : subBookMarks) {
+        for (Bookmark bookmark : subBookmarks) {
             if (kid.getSeq().startsWith(bookmark.getSeq()+".")) {
                 bookmark.addSubBookMarkBySeq(kid);
                 return;
             }
         }
-        subBookMarks.add(kid);
+        subBookmarks.add(kid);
     }
 
 
@@ -79,8 +96,8 @@ public class Bookmark {
         if (pageIndex >= 0)
             root.put("Page", String.format("%d Fit", pageIndex));
         ArrayList<HashMap<String, Object>> kids = new ArrayList<HashMap<String, Object>>();
-        if (subBookMarks != null && !subBookMarks.isEmpty()) {
-            for (Bookmark bookmark : subBookMarks) {
+        if (subBookmarks != null && !subBookmarks.isEmpty()) {
+            for (Bookmark bookmark : subBookmarks) {
                 kids.add(bookmark.outlines());
             }
             root.put("Kids", kids);
@@ -100,8 +117,8 @@ public class Bookmark {
 
         sb.append(getTitle());
 
-        if (getSubBookMarks() != null && !getSubBookMarks().isEmpty()) {
-            for (Bookmark bookmark : getSubBookMarks()) {
+        if (getSubBookmarks() != null && !getSubBookmarks().isEmpty()) {
+            for (Bookmark bookmark : getSubBookmarks()) {
                 sb.append("\n");
                 sb.append(indent);
                 sb.append(bookmark.toString().replaceAll(indent,indent+indent));

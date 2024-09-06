@@ -8,6 +8,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.Dragboard;
@@ -17,6 +18,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Created by ifnoelse on 2017/3/2 0002.
@@ -93,15 +95,21 @@ public class Main extends Application {
         Scene scene = new Scene(vBox, 600, 400);
         primaryStage.setScene(scene);
 
+        // 记录上次选择的目录
+        final AtomicReference<File> lastDirectory = new AtomicReference<>(null);
         fileSelectorBtn.setOnAction(event -> {
             FileChooser fileChooser = new FileChooser();
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("pdf", "*.pdf"));
+            // 如果之前有选择的目录，则设置为初始目录
+            if (lastDirectory.get() != null) {
+                fileChooser.setInitialDirectory(lastDirectory.get());
+            }
             File file = fileChooser.showOpenDialog(null);
             if (file != null) {
                 filePath.setText(file.getPath());
+                // 记录当前选择的文件目录
+                lastDirectory.set(file.getParentFile());
             }
-
-
         });
 
 
@@ -138,7 +146,7 @@ public class Main extends Application {
                     PDFUtil.addBookmark(textArea.getText(), srcFile, destFile, Integer.parseInt(offset != null && !offset.isEmpty() ? offset : "0"));
                 } catch (Exception e) {
                     String errInfo = e.toString();
-                    if (e.getCause().getClass() == BadPasswordException.class) {
+                    if (e.getCause() != null && e.getCause().getClass() == BadPasswordException.class) {
                         errInfo = "PDF已加密，无法完成修改";
                     }
                     showDialog("错误", "添加目录错误", errInfo, Alert.AlertType.INFORMATION);
@@ -156,7 +164,11 @@ public class Main extends Application {
 
     private void showDialog(String title, String header, String content, Alert.AlertType alertType) {
         Alert alert = new Alert(alertType);
-        alert.setContentText(content);
+
+        // 创建 Label
+        Label label = new Label(content);
+        label.setWrapText(true); // 允许自动换行
+        alert.getDialogPane().setContent(label);
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.show();
